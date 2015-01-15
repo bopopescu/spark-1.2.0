@@ -321,7 +321,8 @@ class StreamingContext private[streaming] (
       storageLevel: StorageLevel,
       receiverLocation: String
     ): ReceiverInputDStream[T] = {
-    new SocketInputDStreamWithReceiverLocation[T](this, hostname, port, converter, storageLevel, receiverLocation)
+    new SocketInputDStreamWithReceiverLocation[T](this, hostname, port, converter, storageLevel,
+      receiverLocation)
   }
 
   /**
