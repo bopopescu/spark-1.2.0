@@ -304,6 +304,27 @@ class StreamingContext private[streaming] (
   }
 
   /**
+   * Create a input stream from TCPsource hostname:port. Data is received using
+   * a TCPsocket and the received bytes are interpreted as objects using the given
+   * converter.
+   * @param hostname          Hostname to connect to for receiving data
+   * @param port              Port to connect to for receiving data
+   * @param converter         Function to convert the byte stream to objects
+   * @param storageLevel      Storage level to use for storing the received objects
+   * @param receiverLocation  Hostname for the receiver's preferred location
+   * @tparam T                Type of the objects received (after converting bytes to objects)
+   */
+  def socketStreamWithReceiverLocation[T: ClassTag](
+      hostname: String,
+      port: Int,
+      converter: (InputStream) => Iterator[T],
+      storageLevel: StorageLevel,
+      receiverLocation: String
+    ): ReceiverInputDStream[T] = {
+    new SocketInputDStreamWithReceiverLocation[T](this, hostname, port, converter, storageLevel, receiverLocation)
+  }
+
+  /**
    * Create a input stream from network source hostname:port, where data is received
    * as serialized blocks (serialized using the Spark's serializer) that can be directly
    * pushed into the block manager without deserializing them. This is the most efficient
