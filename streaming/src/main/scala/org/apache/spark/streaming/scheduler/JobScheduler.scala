@@ -25,10 +25,13 @@ import org.apache.spark.{SparkException, Logging, SparkEnv}
 import org.apache.spark.streaming._
 
 
-private[scheduler] sealed trait JobSchedulerEvent
+private[spark] sealed trait JobSchedulerEvent
 private[scheduler] case class JobStarted(job: Job) extends JobSchedulerEvent
 private[scheduler] case class JobCompleted(job: Job) extends JobSchedulerEvent
 private[scheduler] case class ErrorReported(msg: String, e: Throwable) extends JobSchedulerEvent
+
+// added by soh
+private[spark] case class CreateNewJob() extends JobSchedulerEvent
 
 /**
  * This class schedules jobs to be run on Spark. It uses the JobGenerator to generate
@@ -124,6 +127,10 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
         case JobStarted(job) => handleJobStart(job)
         case JobCompleted(job) => handleJobCompletion(job)
         case ErrorReported(m, e) => handleError(m, e)
+        case CreateNewJob() =>
+          // cancel timer to disable periodic batch creation
+          jobGenerator.stopBatchTimer()
+          jobGenerator.generateJobs(Time(System.currentTimeMillis()))
       }
     } catch {
       case e: Throwable =>

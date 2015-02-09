@@ -50,6 +50,8 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
   private val timer = new RecurringTimer(clock, ssc.graph.batchDuration.milliseconds,
     longTime => eventActor ! GenerateJobs(new Time(longTime)), "JobGenerator")
 
+  private var timerStopped = false
+
   // This is marked lazy so that this is initialized after checkpoint duration has been set
   // in the context and the generator has been started.
   private lazy val shouldCheckpoint = ssc.checkpointDuration != null && ssc.checkpointDir != null
@@ -149,6 +151,8 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
    */
   def onBatchCompletion(time: Time) {
     eventActor ! ClearMetadata(time)
+    stopBatchTimer()
+    eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
   }
 
   /**
@@ -216,7 +220,7 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
   }
 
   /** Generate jobs and perform checkpoint for the given `time`.  */
-  private def generateJobs(time: Time) {
+  private[streaming] def generateJobs(time: Time) {
     // Set the SparkEnv in this thread, so that job generation code can access the environment
     // Example: BlockRDDs are created in this thread, and it needs to access BlockManager
     // Update: This is probably redundant after threadlocal stuff in SparkEnv has been removed.
@@ -266,5 +270,12 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
 
   private def markBatchFullyProcessed(time: Time) {
     lastProcessedBatch = time
+  }
+
+  private[streaming] def stopBatchTimer(): Unit = {
+    if (!timerStopped) {
+      timer.stop(true)
+      timerStopped = true
+    }
   }
 }
