@@ -127,10 +127,6 @@ class JobScheduler(val ssc: StreamingContext) extends Logging {
         case JobStarted(job) => handleJobStart(job)
         case JobCompleted(job) => handleJobCompletion(job)
         case ErrorReported(m, e) => handleError(m, e)
-        case CreateNewJob() =>
-          // cancel timer to disable periodic batch creation
-          jobGenerator.stopBatchTimer()
-          jobGenerator.generateJobs(Time(System.currentTimeMillis()))
       }
     } catch {
       case e: Throwable =>

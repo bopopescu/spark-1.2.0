@@ -274,6 +274,7 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
 
   private[streaming] def stopBatchTimer(): Unit = {
     if (!timerStopped) {
+      logInfo("STOPPING BATCH TIMER!!!!")
       timer.stop(true)
       timerStopped = true
     }
