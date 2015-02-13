@@ -151,8 +151,10 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
    */
   def onBatchCompletion(time: Time) {
     eventActor ! ClearMetadata(time)
-    stopBatchTimer()
-    eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
+    if (ssc.isModelCheckingStarted) {
+      stopBatchTimer()
+      eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
+    }
   }
 
   /**
@@ -232,7 +234,14 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
       case Success(jobs) =>
         val receivedBlockInfos =
           jobScheduler.receiverTracker.getBlocksOfBatch(time).mapValues { _.toArray }
-        jobScheduler.submitJobSet(JobSet(time, jobs, receivedBlockInfos))
+        if (ssc.isModelCheckingStarted && receivedBlockInfos.values.size == 0) {
+          logInfo("ModelChecking is finished. Terminating Spark Streaming...")
+          ssc.isModelCheckingStarted = false
+          ssc.stop(true, false)
+          return
+        } else {
+          jobScheduler.submitJobSet(JobSet(time, jobs, receivedBlockInfos))
+        }
       case Failure(e) =>
         jobScheduler.reportError("Error generating jobs for time " + time, e)
     }
