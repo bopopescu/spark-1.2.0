@@ -151,8 +151,15 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
    */
   def onBatchCompletion(time: Time) {
     eventActor ! ClearMetadata(time)
-    if (ssc.isModelCheckingStarted) {
-      stopBatchTimer()
+    if (ssc.isStartedReceivers) {
+      // soh: try to slow down generating empty jobs.
+      if (ssc.isEmptyJob) {
+        try {
+          Thread.sleep(1000)
+        } catch {
+          case _ =>
+        }
+      }
       eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
     }
   }
@@ -193,23 +200,28 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
       val jumpTime = ssc.sc.conf.getLong("spark.streaming.manualClock.jump", 0)
       clock.asInstanceOf[ManualClock].setTime(lastTime + jumpTime)
     }
-
-    val batchDuration = ssc.graph.batchDuration
-
-    // Batches when the master was down, that is,
-    // between the checkpoint and current restart time
-    val checkpointTime = ssc.initialCheckpoint.checkpointTime
-    val restartTime = new Time(timer.getRestartTime(graph.zeroTime.milliseconds))
-    val downTimes = checkpointTime.until(restartTime, batchDuration)
-    logInfo("Batches during down time (" + downTimes.size + " batches): "
-      + downTimes.mkString(", "))
+    
+    /**
+     * soh: Modified recovery logic for the model checker.
+     * Since I am not loosing any data for the batches that should have been created,
+     * when the master was down, (because of WAL)
+     * I really do not have to create these jobs for downTimes.
+     *
+     * However, it is possible that pendingTimes is None because no jobs were lost,
+     * when the master was down.
+     * Just in case the user specified batch interval is really long, to avoid waiting for
+     * the interval and realize that we are done, just create a job for the current time
+     * on top of pendingTimes.
+     */
 
     // Batches that were unprocessed before failure
+    val restartTime = new Time(timer.getRestartTime(graph.zeroTime.milliseconds))
+    val currentTime = new Time(clock.currentTime())
     val pendingTimes = ssc.initialCheckpoint.pendingTimes.sorted(Time.ordering)
     logInfo("Batches pending processing (" + pendingTimes.size + " batches): " +
       pendingTimes.mkString(", "))
     // Reschedule jobs for these times
-    val timesToReschedule = (pendingTimes ++ downTimes).distinct.sorted(Time.ordering)
+    val timesToReschedule = (pendingTimes :+ currentTime).distinct.sorted(Time.ordering)
     logInfo("Batches to reschedule (" + timesToReschedule.size + " batches): " +
       timesToReschedule.mkString(", "))
     timesToReschedule.foreach(time =>
@@ -234,14 +246,7 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
       case Success(jobs) =>
         val receivedBlockInfos =
           jobScheduler.receiverTracker.getBlocksOfBatch(time).mapValues { _.toArray }
-        if (ssc.isModelCheckingStarted && receivedBlockInfos.values.size == 0) {
-          logInfo("ModelChecking is finished. Terminating Spark Streaming...")
-          ssc.isModelCheckingStarted = false
-          ssc.stop(true, false)
-          return
-        } else {
-          jobScheduler.submitJobSet(JobSet(time, jobs, receivedBlockInfos))
-        }
+        jobScheduler.submitJobSet(JobSet(time, jobs, receivedBlockInfos))
       case Failure(e) =>
         jobScheduler.reportError("Error generating jobs for time " + time, e)
     }

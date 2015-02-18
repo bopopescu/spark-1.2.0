@@ -286,7 +286,7 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
       // Distribute the receivers and start them
       logInfo("Starting " + receivers.length + " receivers")
       // soh: start optimized batching...
-      ssc.isModelCheckingStarted = true
+      ssc.isStartedReceivers = true
       ssc.sparkContext.runJob(tempRDD, ssc.sparkContext.clean(startReceiver))
       logInfo("All of the receivers have been terminated")
     }

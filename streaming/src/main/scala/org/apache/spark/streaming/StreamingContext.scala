@@ -111,7 +111,9 @@ class StreamingContext private[streaming] (
       "both SparkContext and checkpoint as null")
   }
 
-  private[streaming] var isModelCheckingStarted = false
+  private[streaming] var isStartedReceivers = false
+
+  private[streaming] var isEmptyJob = false
 
   private[streaming] val isCheckpointPresent = (cp_ != null)
 

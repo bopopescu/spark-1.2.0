@@ -18,8 +18,7 @@
 package org.apache.spark.streaming.dstream
 
 import org.apache.spark.streaming.{Duration, Time}
-import org.apache.spark.rdd.RDD
-import org.apache.spark.rdd.UnionRDD
+import org.apache.spark.rdd.{BlockRDD, RDD, UnionRDD}
 
 import scala.collection.mutable.ArrayBuffer
 import scala.reflect.ClassTag
@@ -45,6 +44,8 @@ class UnionDStream[T: ClassTag](parents: Array[DStream[T]])
         + validTime)
     })
     if (rdds.size > 0) {
+      // soh: do not force generating a batch if all rdds are empty.
+      ssc.isEmptyJob = rdds.forall(_.partitions.isEmpty)
       Some(new UnionRDD(ssc.sc, rdds))
     } else {
       None
