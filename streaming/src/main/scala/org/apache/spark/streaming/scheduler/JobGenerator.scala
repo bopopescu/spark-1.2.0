@@ -203,25 +203,32 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
     
     /**
      * soh: Modified recovery logic for the model checker.
-     * Since I am not loosing any data for the batches that should have been created,
-     * when the master was down, (because of WAL)
-     * I really do not have to create these jobs for downTimes.
      *
-     * However, it is possible that pendingTimes is None because no jobs were lost,
-     * when the master was down.
-     * Just in case the user specified batch interval is really long, to avoid waiting for
-     * the interval and realize that we are done, just create a job for the current time
-     * on top of pendingTimes.
+     * Jobs that should have been/were created when the master was down must be recreated.
+     * Although in theory it is sufficient to create a combined single job,
+     * with current design of Spark, one cannot get the blocks in this interval
+     * without knowing actual times.
+     *
+     * The easiest way is to look for all batch times during the master was down and
+     * resubmit those jobs.
+     *
+     * ReceiverTracker checkpoints batchtimes and therefore batchtimes are recovered
+     * on failure. This algorithm just filters for batchtimes during master downtime,
+     * and recreates those jobs.
      */
+    val checkpointTime = ssc.initialCheckpoint.checkpointTime
+    val restartTime = new Time(timer.getRestartTime(graph.zeroTime.milliseconds))
+    val downTimes = ssc.scheduler.receiverTracker
+      .getBatchTimesForInterval(checkpointTime, restartTime)
+    logInfo("Batches during down time (" + downTimes.size + " batches): "
+      + downTimes.mkString(", "))
 
     // Batches that were unprocessed before failure
-    val restartTime = new Time(timer.getRestartTime(graph.zeroTime.milliseconds))
-    val currentTime = new Time(clock.currentTime())
     val pendingTimes = ssc.initialCheckpoint.pendingTimes.sorted(Time.ordering)
     logInfo("Batches pending processing (" + pendingTimes.size + " batches): " +
       pendingTimes.mkString(", "))
     // Reschedule jobs for these times
-    val timesToReschedule = (pendingTimes :+ currentTime).distinct.sorted(Time.ordering)
+    val timesToReschedule = (pendingTimes ++ downTimes).distinct.sorted(Time.ordering)
     logInfo("Batches to reschedule (" + timesToReschedule.size + " batches): " +
       timesToReschedule.mkString(", "))
     timesToReschedule.foreach(time =>

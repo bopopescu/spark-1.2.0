@@ -19,6 +19,8 @@ package org.apache.spark.streaming.scheduler
 
 import java.nio.ByteBuffer
 
+import org.apache.spark.storage.BlockId
+
 import scala.collection.mutable
 import scala.language.implicitConversions
 
@@ -124,6 +126,11 @@ private[streaming] class ReceivedBlockTracker(
         _.getBlocksOfStream(streamId)
       }.getOrElse(Seq.empty)
     }
+  }
+
+  /** Get all blocks allocated to the batches created within the specified time interval. */
+  def getBatchTimesForInterval(startTime: Time, endTime: Time): Seq[Time] = synchronized {
+    timeToAllocatedBlocks.filterKeys(_ >= startTime).filterKeys(_ < endTime).keys.toSeq
   }
 
   /** Check if any blocks are left to be allocated to batches. */

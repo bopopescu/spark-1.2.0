@@ -119,6 +119,11 @@ class ReceiverTracker(ssc: StreamingContext, skipReceiverLaunch: Boolean = false
     }
   }
 
+  /** Get the blocks for batches within an interval. */
+  def getBatchTimesForInterval(startTime: Time, endTime: Time): Seq[Time] = {
+    receivedBlockTracker.getBatchTimesForInterval(startTime, endTime)
+  }
+
     /** Clean up metadata older than the given threshold time */
   def cleanupOldMetadata(cleanupThreshTime: Time) {
     receivedBlockTracker.cleanupOldBatches(cleanupThreshTime)
