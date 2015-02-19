@@ -285,12 +285,4 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
   private def markBatchFullyProcessed(time: Time) {
     lastProcessedBatch = time
   }
-
-  private[streaming] def stopBatchTimer(): Unit = {
-    if (!timerStopped) {
-      logInfo("STOPPING BATCH TIMER!!!!")
-      timer.stop(true)
-      timerStopped = true
-    }
-  }
 }
