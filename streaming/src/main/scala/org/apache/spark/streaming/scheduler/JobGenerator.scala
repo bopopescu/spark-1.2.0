@@ -151,17 +151,16 @@ class JobGenerator(jobScheduler: JobScheduler) extends Logging {
    */
   def onBatchCompletion(time: Time) {
     eventActor ! ClearMetadata(time)
-    if (ssc.isStartedReceivers) {
-      // soh: try to slow down generating empty jobs.
-      if (ssc.isEmptyJob) {
-        try {
-          Thread.sleep(1000)
-        } catch {
-          case _ =>
-        }
+    timer.stop(false)
+    // soh: try to slow down generating empty jobs.
+    if (ssc.isEmptyJob) {
+      try {
+        Thread.sleep(1000)
+      } catch {
+        case _ =>
       }
-      eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
     }
+    eventActor ! GenerateJobs(Time(System.currentTimeMillis()))
   }
 
   /**
