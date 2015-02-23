@@ -99,7 +99,7 @@ private[streaming] class ReceivedBlockTracker(
    * This event will get written to the write ahead log (if enabled).
    */
   def allocateBlocksToBatch(batchTime: Time): Unit = synchronized {
-    if (lastAllocatedBatchTime == null || batchTime > lastAllocatedBatchTime) {
+    if (lastAllocatedBatchTime == null || batchTime >= lastAllocatedBatchTime) {
       val streamIdToBlocks = streamIds.map { streamId =>
           (streamId, getReceivedBlockQueue(streamId).dequeueAll(x => true))
       }.toMap
