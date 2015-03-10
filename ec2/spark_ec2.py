@@ -44,7 +44,7 @@ SPARK_EC2_DIR = os.path.dirname(os.path.realpath(__file__))
 
 MESOS_SPARK_EC2_BRANCH = "v4"
 # A URL prefix from which to fetch AMI information
-AMI_PREFIX = "https://raw.github.com/mesos/spark-ec2/{b}/ami-list".format(b=MESOS_SPARK_EC2_BRANCH)
+AMI_PREFIX = "https://raw.github.com/sukwon0709/spark-ec2/{b}/ami-list".format(b=MESOS_SPARK_EC2_BRANCH)
 
 
 class UsageError(Exception):
@@ -134,7 +134,7 @@ def parse_args():
         "--no-ganglia", action="store_false", dest="ganglia",
         help="Disable Ganglia monitoring for the cluster")
     parser.add_option(
-        "-u", "--user", default="root",
+        "-u", "--user", default="ubuntu",
         help="The SSH user you want to connect as (default: %default)")
     parser.add_option(
         "--delete-groups", action="store_true", default=False,
@@ -236,7 +236,7 @@ def get_spark_ami(opts):
         "c3.2xlarge":  "pvm",
         "c3.4xlarge":  "pvm",
         "c3.8xlarge":  "pvm",
-        "c3.large":    "pvm",
+        "c3.large":    "hvm",
         "c3.xlarge":   "pvm",
         "cc1.4xlarge": "hvm",
         "cc2.8xlarge": "hvm",
@@ -579,7 +579,7 @@ def setup_cluster(conn, master_nodes, slave_nodes, opts, deploy_ssh_key):
 def setup_standalone_cluster(master, slave_nodes, opts):
     slave_ips = '\n'.join([i.public_dns_name for i in slave_nodes])
     ssh(master, opts, "echo \"%s\" > spark/conf/slaves" % (slave_ips))
-    ssh(master, opts, "/root/spark/sbin/start-all.sh")
+    ssh(master, opts, "/home/ubuntu/spark/sbin/start-all.sh")
 
 
 def setup_spark_cluster(master, opts):
@@ -797,6 +797,7 @@ def stringify_command(parts):
 
 def ssh_args(opts):
     parts = ['-o', 'StrictHostKeyChecking=no']
+    parts += ['-o', 'UserKnownHostsFile=/dev/null']
     if opts.identity_file is not None:
         parts += ['-i', opts.identity_file]
     return parts
